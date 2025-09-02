@@ -94,6 +94,25 @@ seed: 42
 thresholds: [0.10, 0.12, 0.13, 0.15, 0.20]
 p95_limit_s: 0.05
 plateau_eps: 0.2
+
+# Attach JSONL streams (e.g., `gps_fix`, `gps_odom`, `yaw`, `tf`) to each manifest row via config:
+metadata_sync:
+  - name: gps_fix
+    rel_path: metadata/gps_fix.jsonl
+    ts_key: t
+    max_dt_ms: 200
+    mode: nearest
+    store_fields: [latitude, longitude, altitude]
+    output_prefix: gps
+    also_store_pointer: true
+  - name: tf_odom_to_base
+    rel_path: metadata/tf/odom__to__base_link.jsonl
+    ts_key: t
+    max_dt_ms: 100
+    mode: nearest
+    store_fields: []
+    output_prefix: tf_o2b
+    also_store_pointer: true
 ```
 
 ### Example JSON config
@@ -118,21 +137,49 @@ plateau_eps: 0.2
 ### 1. Synchronize and match frames
 
 ```bash
-python sync_and_match.py /abs/path/Include_in_list --config config.yaml
-```
+# Process all *_label under root
+python sync_and_match.py /abs/path/to/data/ --config config.yaml
 
+# Or limit to a list and auto-append suffix where needed
+python sync_and_match.py /data/ds --config cfg.yaml --scenarios_file /lists/keep.txt --list_suffix "_label"
+```
 This will create `sync.json` in each `<scenario>_label` folder.
-
-### 2. Build manifest and splits
-
-```bash
-python build_manifest_and_splits.py   --root /abs/path/Include_in_list   --config config.yaml   --run_sync   --no_splits
-```
-
 Outputs:
 - `manifest_samples.tsv`
 - `sessions.tsv`
 - (optional) `train.txt`, `val.txt`, `test.txt`
+
+### 2. Build manifest and splits
+
+```bash
+# Build manifest only (no splits), after running sync
+python build_manifest_and_splits.py --root /abs/path/to/data/ --config cfg.yaml --no_splits
+
+# In one step: run sync first, then manifest
+python build_manifest_and_splits.py --root /abs/path/to/data/ --config cfg.yaml --run_sync --no_splits
+
+# Limit to a list
+python build_manifest_and_splits.py --root /abs/path/to/data/ --config cfg.yaml   --scenarios_file /lists/keep.csv --list_suffix "_label" --no_splits
+```
+
+- Reads `sync.json` from each session.
+- Outputs:
+  - `manifest_samples.tsv` — one row per anchor frame, with per-modality paths or `null`.
+  - `sessions.tsv` — one row per session.
+  - Optional `splits/default/{train,val,test}.txt` (session-grouped).
+
+_**Note:**_
+1) If you pass **`--scenarios_file PATH`**, the file is **authoritative**.
+   - The file can live **anywhere** on disk (absolute or relative path).
+   - Formats: `.txt/.lst` (one folder name per line), `.csv/.tsv` (column
+     `session_id` or `folder`), `.json` (array), `.yml/.yaml` (list).
+   - Names may be either **exact folder names** (e.g., `foo_..._label`) or
+     **base names** (e.g., `foo_...`) — the scripts will try to append
+     the suffix from `--list_suffix` (default: `_label`) when needed.
+   - The scripts print a **Missing from list** report for names that could
+     not be resolved to existing folders under `--root`.
+2) If **no** `--scenarios_file` is given, the scripts process **all folders
+   under `--root` that end with `_label`**.
 
 ---
 
