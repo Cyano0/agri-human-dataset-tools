@@ -25,8 +25,7 @@ dataset_root/
 │  │  ├─ cam_fish_left_ann.json
 │  │  ├─ cam_fish_front_ann.json
 │  │  ├─ cam_fish_right_ann.json
-│  │  ├─ cam_zed_rgb_ann.json
-│  │  └─ cam_zed_depth_ann.json   # optional
+│  │  └─ cam_zed_rgb_ann.json
 │  │
 │  ├─ metadata/
 │  │  └─ meta.json
