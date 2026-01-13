@@ -1,0 +1,58 @@
+from pathlib import Path
+import argparse
+from kitti_export_common import run_export
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", required=True)
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--anchor_camera", default="cam_zed_rgb")
+    ap.add_argument("--ann_source", nargs="*", default=["cam_zed_rgb"])
+    ap.add_argument("--ann_key_mode", choices=["auto","stem","filename"], default="auto")
+    ap.add_argument("--debug_labels", action="store_true")
+    ap.add_argument("--require_image", action="store_true")
+    ap.add_argument("--require_lidar", action="store_true")
+    ap.add_argument("--lidar_frame")
+    ap.add_argument("--camera_optical_frame")
+    ap.add_argument("--scenarios_file")
+    ap.add_argument("--list_suffix", default="_label")
+    ap.add_argument("--manifest_tsv")
+    ap.add_argument("--split_tag", choices=["train","val","test"])
+    ap.add_argument("--split_file")
+    ap.add_argument("--oxts_fix_jsonl_rel", default="metadata/gps_fix.jsonl")
+    ap.add_argument("--oxts_odom_jsonl_rel", default="metadata/gps_odom.jsonl")
+    ap.add_argument("--oxts_ts_key", default="t")
+    ap.add_argument("--oxts_max_dt_ms", type=int, default=200)
+    ap.add_argument("--oxts_fields", nargs="*")
+    ap.add_argument("--calib_root")
+    args = ap.parse_args()
+
+    run_export(
+        mode="object",
+        root=Path(args.root).resolve(),
+        out=Path(args.out).resolve(),
+        anchor_camera=args.anchor_camera,
+        require_image=args.require_image,
+        require_lidar=args.require_lidar,
+        lidar_frame=args.lidar_frame,
+        camera_optical_frame=args.camera_optical_frame,
+        scenarios_file=Path(args.scenarios_file).resolve() if args.scenarios_file else None,
+        list_suffix=args.list_suffix,
+        manifest_tsv=Path(args.manifest_tsv).resolve() if args.manifest_tsv else None,
+        split_tag=args.split_tag,
+        split_file=Path(args.split_file).resolve() if args.split_file else None,
+        oxts_fix_jsonl_rel=args.oxts_fix_jsonl_rel,
+        oxts_odom_jsonl_rel=args.oxts_odom_jsonl_rel,
+        oxts_ts_key=args.oxts_ts_key,
+        oxts_max_dt_ms=args.oxts_max_dt_ms,
+        oxts_fields=args.oxts_fields,
+        ann_source=args.ann_source,
+        fisheyes=[],
+        depth_camera=None, depth_write_png16=False,
+        ann_key_mode=args.ann_key_mode,
+        debug_labels=args.debug_labels,
+        calib_root=Path(args.calib_root).resolve() if args.calib_root else None,
+    )
+
+if __name__ == "__main__":
+    main()

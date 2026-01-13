@@ -1,0 +1,63 @@
+export:
+  mode: custom                    # raw | object | depth | custom
+  root: dataset_test/test
+  out: kitti_out
+  calib_root: dataset_test
+  list_suffix: _label
+  scenarios_file: null            # or: list.txt / list.yaml
+  require_image: true
+  require_lidar: true
+  lidar_frame: front_lidar_link
+  anchor_camera: cam_zed_rgb
+
+oxts:
+  fix_jsonl_rel: metadata/gps_fix.jsonl
+  odom_jsonl_rel: metadata/gps_odom.jsonl
+  ts_key: t
+  max_dt_ms: 200
+
+cameras:
+  cam_zed_rgb:
+    write_labels: true
+    projection: pinhole           # pinhole | fisheye
+    optical_frame: front_left_camera_optical_frame
+    ann_sources: [cam_zed_rgb]    # image annotation JSON(s) to read for this camera
+    prefer_2d: true               # 2D first, then add 3D
+    use_lidar_3d: true            # enable LiDAR→3D→2D projection
+    prefer_lidar_3d: false        # ignored if prefer_2d is true
+    write_images: true            # export image_2/XXXX.png
+
+  cam_fish_front:
+    write_labels: true
+    projection: fisheye
+    optical_frame: fish_front_camera_link_optical
+    ann_sources: [cam_fish_front]
+    prefer_2d: false
+    use_lidar_3d: true
+    prefer_lidar_3d: true
+    write_images: true            # export image_fish_front/XXXX.png
+
+  cam_fish_left:
+    write_labels: true
+    projection: fisheye
+    optical_frame: fish_left_camera_link_optical
+    ann_sources: [cam_fish_left]
+    prefer_2d: false
+    use_lidar_3d: true
+    prefer_lidar_3d: true
+    write_images: true
+
+  cam_fish_right:
+    write_labels: true
+    projection: fisheye
+    optical_frame: fish_right_camera_link_optical
+    ann_sources: [cam_fish_right]
+    prefer_2d: false
+    use_lidar_3d: true
+    prefer_lidar_3d: true
+    write_images: true
+
+depth:
+  camera: cam_zed_depth           # optional (for depth/custom modes)
+  write_png16: true
+
