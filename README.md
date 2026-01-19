@@ -1,22 +1,52 @@
 # YOLO Export Toolkit for Agri-Human Dataset
 
-This document describes how to export data from the **Agri-Human dataset**
-into **YOLO format** for training, validation, and testing.
+This document explains how to export the **Agri-Human dataset** into **YOLO format**
+for training, validation, and testing.
+
+This repository focuses **only on YOLO export**.
+(KITTI export and related tooling live in a separate repository.)
 
 The YOLO exporter is designed to:
-- Reuse the **same synchronisation (`sync.json`)** as KITTI exports
-- Reuse **train/val/test splits** produced by `build_manifest_and_splits.py`
-- Support **single-camera YOLO today**
-- Plan for **multi-camera YOLO** support (RGB + fisheye) in the near future
+
+- Reuse **sensor synchronisation (`sync.json`)**
+- Reuse **global train/val/test splits** (session-safe, no leakage)
+- Avoid splitting frames from the same recording session
+- Support **single-camera YOLO (RGB)** today
+- Work on **Linux and Windows**
 
 ---
 
-## 1. What is YOLO format?
+## 0. Recommended Repository Layout
+
+It is recommended to separate **code** and **data**:
+
+```
+agri-human-yolo-tools/
+├── sync_and_match.py
+├── build_manifest_and_splits.py
+├── yolo_export_session.py
+├── README.md
+└── dataset/
+    ├── footpath1_..._label/
+    ├── footpath2_..._label/
+    ├── manifest_samples.tsv
+    └── splits/
+        └── default/
+            ├── train.txt (created by build_manifest_and_splits.py)
+            ├── val.txt (created by build_manifest_and_splits.py)
+            └── test.txt (created by build_manifest_and_splits.py)
+```
+
+All scripts can be executed from any directory as long as paths are correct.
+
+---
+
+## 1. What is YOLO Format?
 
 A YOLO dataset has the following structure:
 
 ```
-yolo_out/
+yolo_dataset/
 ├── images/
 │   ├── train/
 │   ├── val/
@@ -31,117 +61,196 @@ yolo_out/
 └── data.yaml
 ```
 
-Each image has a matching `.txt` file with the same index:
+Each image has a corresponding label file:
 
 ```
 labels/train/000123.txt
 ```
 
-Each line in a label file is:
+Each line in a YOLO label file:
 
 ```
 <class_id> <cx> <cy> <w> <h>
 ```
 
-All values are **normalized to [0,1]**.
+All values are **normalized to [0, 1]**.
 
 ---
 
-## 2. Input Requirements (Important)
+## 2. Input Requirements
 
-Before exporting YOLO, you must have:
+Before exporting YOLO, your dataset must already contain:
 
-1. A session folder:
+### 2.1 Session folders
+
+Each recording session lives in a folder ending with `_label`:
+
 ```
 footpath1_..._label/
 ```
 
-2. A valid `sync.json` inside the session  
-(created by `sync_and_match.py`)
+Each session must contain:
 
-3. A 2D annotation JSON, for example:
 ```
-annotations/cam_zed_rgb_ann.json
+sensor_data/
+annotations/
+metadata/
+sync.json
 ```
 
-4. (Optional but recommended) global splits:
+`sync.json` is produced by:
+
+```bash
+python sync_and_match.py <DATASET_ROOT>
 ```
+
+---
+
+### 2.2 Global manifest and splits (REQUIRED)
+
+YOLO export **does not split data inside a session**.
+
+Instead, global splits are generated once and reused to prevent overfitting.
+
+Create them with:
+
+```bash
+python build_manifest_and_splits.py --root <DATASET_ROOT>
+```
+
+This generates:
+
+```
+manifest_samples.tsv
 splits/default/train.txt
 splits/default/val.txt
 splits/default/test.txt
 ```
 
-These are created by:
+---
+
+## 3. Full Workflow (Recommended)
+
+### Step 1 — Synchronise sensors
+
+Linux / macOS:
+```bash
+python sync_and_match.py <DATASET_ROOT>
 ```
-build_manifest_and_splits.py
+
+Windows (PowerShell):
+```powershell
+python sync_and_match.py "D:\Root\Of\Dataset"
 ```
 
 ---
 
-## 3. YOLO Export Script
-
-### Script name
-```
-yolo_export_session.py
-```
-
-This script exports **one session** into YOLO format.
-
----
-
-## 4. Basic Usage (Ratio-based split)
-
-Use this when exporting a single session without global splits:
+### Step 2 — Build manifest and splits
 
 ```bash
-python yolo_export_session.py   --session dataset_test/test/footpath1_..._label   --out yolo_footpath1   --anchor_camera cam_zed_rgb   --split 0.8,0.1,0.1   --seed 42
+python build_manifest_and_splits.py --root <DATASET_ROOT>
 ```
 
 ---
 
-## 5. Using Existing Train/Val/Test Splits (Recommended)
+### Step 3 — Export YOLO (train / val / test)
+
+#### Train
+```bash
+python yolo_export_session.py \
+  --root <DATASET_ROOT> \
+  --splits_root <DATASET_ROOT> \
+  --split_tag train \
+  --out yolo_dataset \
+  --anchor_camera cam_zed_rgb \
+  --merge_humans_to_person \
+  --link_mode copy
+```
+
+#### Validation
+```bash
+python yolo_export_session.py \
+  --root <DATASET_ROOT> \
+  --splits_root <DATASET_ROOT> \
+  --split_tag val \
+  --out yolo_dataset \
+  --anchor_camera cam_zed_rgb \
+  --merge_humans_to_person \
+  --link_mode copy
+```
+
+#### Test
+```bash
+python yolo_export_session.py \
+  --root <DATASET_ROOT> \
+  --splits_root <DATASET_ROOT> \
+  --split_tag test \
+  --out yolo_dataset \
+  --anchor_camera cam_zed_rgb \
+  --merge_humans_to_person \
+  --link_mode copy
+```
+
+---
+
+## 4. Linux vs Windows Notes
+
+- Linux / macOS: use forward slashes (`/`)
+- Windows: use quoted paths if spaces exist
+
+All scripts are **OS-independent**.
+
+---
+
+## 5. Class Mapping
+
+### Merge all human classes into `person` (recommended)
 
 ```bash
-python yolo_export_session.py   --session dataset_test/test/footpath1_..._label   --out yolo_footpath1   --anchor_camera cam_zed_rgb   --splits_root dataset_test
+--merge_humans_to_person
 ```
 
----
+This automatically converts:
+```
+human1, human2, human3, human4, human5 → person
+```
 
-## 6. Class Mapping
+### Custom class mapping
 
 ```bash
-python yolo_export_session.py   --session ...   --out yolo_out   --class_map '{"human1":"person","human2":"person"}'
+--class_map '{"human1":"person","worker":"person"}'
 ```
 
 ---
 
-## 7. Output Files Explained
+## 6. Output Files Explained
 
-- **images/** – training images
+- **images/** – YOLO images
 - **labels/** – YOLO label files
-- **classes.txt** – class list
-- **data.yaml** – YOLO training config
+- **classes.txt** – ordered class list
+- **data.yaml** – YOLO training configuration
 
 ---
 
-## 8. Current Limitations
+## 7. Training Example (Ultralytics YOLO)
 
-- Single camera only
-- No LiDAR-based projection
-- 2D annotations only
-
----
-
-## 9. TODO: Multi-Camera YOLO (Planned)
-
-[ ] Unified multi-camera YOLO
-
-[ ] LiDAR-assisted pseudo-labels
+```bash
+yolo detect train data=yolo_dataset/data.yaml model=yolov8n.pt imgsz=640
+```
 
 ---
 
-## 10. Relationship to KITTI Export
+## 8. Guarantees
 
-YOLO and KITTI exporters share:
-- `sync.json`
-- train/val/test splits
+- No train/val/test leakage
+- Session-safe splitting
+- Deterministic, reproducible exports
+- Same dataset can be re-exported multiple times
+
+---
+
+## 9. Current Limitations
+
+- Single RGB camera only (`cam_zed_rgb`)
+- 2D bounding boxes only
+- Multi-camera YOLO planned for future releases
