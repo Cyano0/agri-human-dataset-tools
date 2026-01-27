@@ -11,7 +11,7 @@ The YOLO exporter is designed to:
 - Reuse **sensor synchronisation (`sync.json`)**
 - Reuse **global train/val/test splits** (session-safe, no leakage)
 - Avoid splitting frames from the same recording session
-- Support **single-camera YOLO (RGB)** today
+- Support **single- or multi-camera YOLO (RGB)**
 - Work on **Linux and Windows**
 
 ---
@@ -191,6 +191,22 @@ python yolo_export_session.py \
   --link_mode copy
 ```
 
+Multi-camera export (example):
+```bash
+python yolo_export_session.py \
+  --root <DATASET_ROOT> \
+  --splits_root <DATASET_ROOT> \
+  --split_tag train \
+  --out yolo_dataset \
+  --anchor_camera cam_fish_front,cam_fish_left,cam_fish_right \
+  --merge_humans_to_person \
+  --link_mode copy
+```
+
+Notes:
+- --anchor_camera accepts a comma list or [a,b,c] form.
+- --camera_folder and --ann_json can be comma lists too (length 1 or same length as --anchor_camera).
+
 ---
 
 ## 4. Linux vs Windows Notes
@@ -251,6 +267,5 @@ yolo detect train data=yolo_dataset/data.yaml model=yolov8n.pt imgsz=640
 
 ## 9. Current Limitations
 
-- Single RGB camera only (`cam_zed_rgb`)
 - 2D bounding boxes only
-- Multi-camera YOLO planned for future releases
+- Requires per-camera annotation json named `<camera>_ann.json` unless `--ann_json` overrides
